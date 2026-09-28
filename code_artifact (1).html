@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>도시 단원 스마트 학습 앱</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 셀렉트 박스 기본 화살표 숨기기 및 커스텀 */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1em;
+            padding-right: 2rem !important;
+        }
+
+        /* 정답/오답 애니메이션 및 스타일 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .correct-answer {
+            border-color: #22c55e !important;
+            background-color: #f0fdf4 !important;
+            color: #15803d !important;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+        }
+        .wrong-answer {
+            animation: shake 0.4s ease-in-out;
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+            color: #b91c1c !important;
+        }
+
+        /* 도시 구조도 CSS */
+        .city-diagram {
+            position: relative;
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 1 / 1;
+            margin: 2rem auto;
+        }
+        .belt-shape {
+            border-radius: 45% 55% 40% 60% / 55% 45% 60% 40%;
+        }
+
+        /* 커스텀 라디오 버튼 스타일 (선진국/개도국 선택용) */
+        .toggle-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .toggle-btn.active-blue {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        .toggle-btn.active-orange {
+            background-color: #f97316;
+            color: white;
+            border-color: #f97316;
+        }
+
+        /* 모달 스타일 */
+        #result-modal {
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="text-gray-800 pb-24">
+
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-center items-center">
+            <h1 class="text-2xl font-black text-indigo-600 tracking-tight">🏙️ 도시 단원 마스터 퀴즈</h1>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6 space-y-8">
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="mb-4">
+                <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 font-bold rounded-full text-sm mb-2">활동 1</span>
+                <h2 class="text-xl font-bold">도시 내부 구조 특징 연결하기</h2>
+                <p class="text-gray-500 text-sm mt-1">각 설명에 알맞은 도시 내부 구역을 선택하세요.</p>
+            </div>
+            
+            <div class="space-y-3" id="section1">
+                <!-- 항목들은 JS로 렌더링됨 -->
+            </div>
+        </section>
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-hidden">
+            <div class="mb-4">
+                <span class="inline-block px-3 py-1 bg-green-100 text-green-700 font-bold rounded-full text-sm mb-2">활동 2</span>
+                <h2 class="text-xl font-bold">도시 내부 구조 위치 찾기</h2>
+                <p class="text-gray-500 text-sm mt-1">모식도의 빈칸에 알맞은 구역 명칭을 선택하세요. (위성도시 제외)</p>
+            </div>
+
+            <!-- CSS 기반 모식도 -->
+            <div class="city-diagram">
+                <!-- 개발 제한 구역 (최외곽) -->
+                <div class="absolute inset-0 bg-green-50 belt-shape border-4 border-green-300 shadow-inner">
+                    <select id="s2_q5" class="absolute top-[8%] left-1/2 transform -translate-x-1/2 bg-white border-2 border-gray-300 rounded-lg py-1 px-2 text-sm font-bold shadow-sm outline-none w-32 text-center" data-answer="개발 제한 구역">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <!-- 주변 지역 -->
+                <div class="absolute inset-[12%] bg-orange-50 rounded-full border-2 border-orange-200">
+                    <select id="s2_q4" class="absolute top-[12%] left-1/2 transform -translate-x-1/2 bg-white border-2 border-gray-300 rounded-lg py-1 px-2 text-sm font-bold shadow-sm outline-none w-28 text-center" data-answer="주변 지역">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <!-- 중간 지역 -->
+                <div class="absolute inset-[28%] bg-blue-50 rounded-full border-2 border-blue-200">
+                    <select id="s2_q3" class="absolute top-[10%] left-1/2 transform -translate-x-1/2 bg-white border-2 border-gray-300 rounded-lg py-1 px-2 text-sm font-bold shadow-sm outline-none w-28 text-center" data-answer="중간 지역">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <!-- 도심 -->
+                <div class="absolute inset-[44%] bg-pink-100 rounded-full border-2 border-pink-300 shadow-md flex items-center justify-center z-10">
+                    <select id="s2_q1" class="bg-white border-2 border-gray-300 rounded-lg py-1 px-2 text-sm font-bold shadow-sm outline-none w-24 text-center" data-answer="도심">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+
+                <!-- 교통선 및 부도심 -->
+                <div class="absolute top-[50%] left-[20%] w-[30%] h-0.5 bg-gray-400 z-0 origin-right transform -rotate-12"></div>
+                
+                <div class="absolute top-[60%] left-[22%] w-16 h-16 bg-purple-100 rounded-full border-2 border-purple-300 shadow-md flex items-center justify-center z-20">
+                    <select id="s2_q2" class="bg-white border-2 border-gray-300 rounded-lg py-1 pl-2 pr-6 text-xs font-bold shadow-sm outline-none w-20 text-center" data-answer="부도심">
+                        <option value="">선택</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="mb-4">
+                <span class="inline-block px-3 py-1 bg-yellow-100 text-yellow-700 font-bold rounded-full text-sm mb-2">활동 3</span>
+                <h2 class="text-xl font-bold">도시화의 의미 빈칸 채우기</h2>
+                <p class="text-gray-500 text-sm mt-1">문맥에 맞게 알맞은 단어를 선택해 문장을 완성하세요.</p>
+            </div>
+            
+            <div class="bg-amber-50 p-6 rounded-xl border border-amber-100 text-lg leading-loose font-medium text-gray-700 text-center sm:text-left shadow-inner">
+                도시에 
+                <select id="s3_q1" class="mx-1 px-2 py-1 bg-white border-2 border-gray-300 rounded-lg text-amber-700 font-bold outline-none inline-block w-auto" data-answer="인구">
+                    <option value="">선택</option>
+                    <option value="인구">인구</option>
+                    <option value="산업">산업</option>
+                    <option value="자본">자본</option>
+                </select>
+                가 집중하면서 전체 인구에서 
+                <select id="s3_q2" class="mx-1 px-2 py-1 bg-white border-2 border-gray-300 rounded-lg text-amber-700 font-bold outline-none inline-block w-auto" data-answer="도시 인구">
+                    <option value="">선택</option>
+                    <option value="농촌 인구">농촌 인구</option>
+                    <option value="외국인">외국인</option>
+                    <option value="도시 인구">도시 인구</option>
+                </select>
+                가 차지하는 비율이 높아지고, 
+                <select id="s3_q3" class="mx-1 px-2 py-1 bg-white border-2 border-gray-300 rounded-lg text-amber-700 font-bold outline-none inline-block w-auto mt-2 sm:mt-0" data-answer="도시적 생활 양식">
+                    <option value="">선택</option>
+                    <option value="전통적 생활 양식">전통적 생활 양식</option>
+                    <option value="도시적 생활 양식">도시적 생활 양식</option>
+                </select>
+                이(가) 보편화되는 과정을 <strong>도시화</strong>라 한다.
+            </div>
+        </section>
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="mb-4">
+                <span class="inline-block px-3 py-1 bg-blue-100 text-blue-700 font-bold rounded-full text-sm mb-2">활동 4</span>
+                <h2 class="text-xl font-bold">도시화 과정 비교</h2>
+                <p class="text-gray-500 text-sm mt-1">다음 특징이 선진국인지 개발 도상국인지 분류하세요.</p>
+            </div>
+            
+            <div class="space-y-3" id="section4">
+                <!-- JS 렌더링 -->
+            </div>
+        </section>
+
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="mb-4">
+                <span class="inline-block px-3 py-1 bg-red-100 text-red-700 font-bold rounded-full text-sm mb-2">활동 5</span>
+                <h2 class="text-xl font-bold">주요 도시 문제 비교</h2>
+                <p class="text-gray-500 text-sm mt-1">다음 도시 문제가 주로 선진국에서 나타나는지 개발 도상국에서 나타나는지 분류하세요.</p>
+            </div>
+            
+            <div class="space-y-3" id="section5">
+                <!-- JS 렌더링 -->
+            </div>
+        </section>
+
+    </main>
+
+    <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40">
+        <div class="max-w-4xl mx-auto flex justify-between items-center gap-4">
+            <div class="text-gray-600 font-bold" id="score-display">
+                <!-- 점수 표시 영역 -->
+            </div>
+            <button onclick="gradeAll()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-colors text-lg flex-grow sm:flex-grow-0 text-center">
+                전체 채점하기 📝
+            </button>
+        </div>
+    </div>
+
+    <!-- 결과 모달 -->
+    <div id="result-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex justify-center items-center z-50 transition-opacity opacity-0">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform" id="modal-content">
+            <div class="text-center">
+                <div class="text-6xl mb-4" id="modal-icon">🎉</div>
+                <h3 class="text-2xl font-black text-gray-800 mb-2" id="modal-title">수고하셨습니다!</h3>
+                <p class="text-gray-600 mb-6 text-lg">총 20문제 중 <strong class="text-indigo-600 text-2xl" id="modal-score">0</strong>문제를 맞혔습니다.</p>
+                <div class="w-full bg-gray-200 rounded-full h-3 mb-6">
+                    <div class="bg-indigo-600 h-3 rounded-full transition-all duration-1000" id="modal-bar" style="width: 0%"></div>
+                </div>
+                <button onclick="closeModal()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl transition-colors">
+                    틀린 문제 확인하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const zoneOptions = `
+            <option value="">선택하세요</option>
+            <option value="도심">도심</option>
+            <option value="부도심">부도심</option>
+            <option value="중간 지역">중간 지역</option>
+            <option value="주변 지역">주변 지역</option>
+            <option value="개발 제한 구역">개발 제한 구역</option>
+        `;
+
+        // 섹션 1 데이터
+        const s1Data = [
+            { text: "행정·금융 기관, 대기업 본사가 집중되며, 인구 공동화 현상이 발생한다.", answer: "도심" },
+            { text: "교통이 편리한 곳에 발달하며, 도심의 교통 혼잡을 완화하고 기능을 분담한다.", answer: "부도심" },
+            { text: "도심 주변에 나타나며, 오래된 주택, 상가, 공장이 혼재되어 있다.", answer: "중간 지역" },
+            { text: "도시 주변 지역으로, 주로 주거 단지가 조성되며 곳곳에 녹지가 있다.", answer: "주변 지역" },
+            { text: "도시의 무질서한 팽창을 방지하고 녹지 공간을 확보하기 위해 설정한다.", answer: "개발 제한 구역" }
+        ];
+
+        // 섹션 4 데이터
+        const s4Data = [
+            { text: "18세기 산업 혁명 이후 오랜 기간에 걸쳐 점진적으로 도시화가 진행됨", answer: "선진국" },
+            { text: "20세기 중반 이후 30~40년 정도의 단기간에 매우 급속하게 진행됨", answer: "개발 도상국" },
+            { text: "이촌 향도와 더불어 청장년층 중심 이동으로 자연적 증가도 급속하게 이루어짐", answer: "개발 도상국" }
+        ];
+
+        // 섹션 5 데이터
+        const s5Data = [
+            { text: "인구 감소 및 시설 노후화 등으로 도시의 활력이 줄어든다.", answer: "선진국" },
+            { text: "주택 및 상하수도 시설 등이 부족하여 무허가 주택과 빈민촌(판자촌)이 형성된다.", answer: "개발 도상국" },
+            { text: "도시 성장 초기 도심에 건설된 건물들이 낡아 불량 주거 지역이 형성된다.", answer: "선진국" },
+            { text: "기반 시설이 갖추어지지 않은 상태에서 많은 사람이 무작정 도시로 이동하였다.", answer: "개발 도상국" }
+        ];
+
+        // 상태 저장용 객체 (섹션 4, 5)
+        const userAnswers = {
+            s4: {},
+            s5: {}
+        };
+
+        function renderSection1() {
+            const container = document.getElementById('section1');
+            s1Data.forEach((item, index) => {
+                container.innerHTML += `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-3">
+                        <p class="text-gray-700 font-medium flex-1">${item.text}</p>
+                        <select id="s1_q${index}" class="bg-white border-2 border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:w-40 p-2.5 outline-none font-bold shadow-sm" data-answer="${item.answer}">
+                            ${zoneOptions}
+                        </select>
+                    </div>
+                `;
+            });
+
+            // 섹션 2 옵션 세팅
+            document.querySelectorAll('#s2_q1, #s2_q2, #s2_q3, #s2_q4, #s2_q5').forEach(el => {
+                el.innerHTML = zoneOptions;
+            });
+        }
+
+        function createToggleRow(containerId, index, text, sectionKey) {
+            return `
+                <div class="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-4" id="${sectionKey}_row_${index}">
+                    <p class="text-gray-700 font-medium flex-1 leading-snug">${text}</p>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <button onclick="setToggle('${sectionKey}', ${index}, '선진국')" id="${sectionKey}_btn_${index}_dev" class="toggle-btn flex-1 md:flex-none px-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-blue-50">선진국</button>
+                        <button onclick="setToggle('${sectionKey}', ${index}, '개발 도상국')" id="${sectionKey}_btn_${index}_undev" class="toggle-btn flex-1 md:flex-none px-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-orange-50">개발 도상국</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSections4and5() {
+            const s4Container = document.getElementById('section4');
+            s4Data.forEach((item, index) => {
+                s4Container.innerHTML += createToggleRow('section4', index, item.text, 's4');
+            });
+
+            const s5Container = document.getElementById('section5');
+            s5Data.forEach((item, index) => {
+                s5Container.innerHTML += createToggleRow('section5', index, item.text, 's5');
+            });
+        }
+
+        function setToggle(sectionKey, index, value) {
+            userAnswers[sectionKey][index] = value;
+            
+            // 스타일 초기화
+            const btnDev = document.getElementById(`${sectionKey}_btn_${index}_dev`);
+            const btnUndev = document.getElementById(`${sectionKey}_btn_${index}_undev`);
+            
+            btnDev.className = "toggle-btn flex-1 md:flex-none px-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-blue-50";
+            btnUndev.className = "toggle-btn flex-1 md:flex-none px-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-orange-50";
+
+            // 선택된 스타일 적용
+            if (value === '선진국') {
+                btnDev.classList.add('active-blue');
+                btnDev.classList.remove('text-gray-600', 'bg-white', 'border-gray-300');
+            } else {
+                btnUndev.classList.add('active-orange');
+                btnUndev.classList.remove('text-gray-600', 'bg-white', 'border-gray-300');
+            }
+
+            // 피드백 스타일(정답/오답 테두리)가 적용되어 있었다면 제거
+            const row = document.getElementById(`${sectionKey}_row_${index}`);
+            row.classList.remove('correct-answer', 'wrong-answer');
+        }
+
+        function checkSelectInput(el) {
+            const correctAnswer = el.dataset.answer;
+            const userAnswer = el.value;
+            
+            el.classList.remove('correct-answer', 'wrong-answer');
+            
+            if (userAnswer === "") {
+                el.classList.add('wrong-answer');
+                setTimeout(() => el.classList.remove('wrong-answer'), 400); // 쉐이크 후 레드 유지 트릭 위해 재적용
+                setTimeout(() => {
+                   if(el.value === "") el.style.borderColor = "#ef4444";
+                }, 410);
+                return 0;
+            }
+
+            if (userAnswer === correctAnswer) {
+                el.classList.add('correct-answer');
+                el.style.borderColor = ""; // inline style 초기화
+                return 1;
+            } else {
+                el.classList.add('wrong-answer');
+                setTimeout(() => el.classList.remove('wrong-answer', 'shake'), 400);
+                setTimeout(() => {
+                   el.classList.add('bg-red-50', 'text-red-700');
+                   el.style.borderColor = "#ef4444";
+                }, 410);
+                return 0;
+            }
+        }
+
+        function checkToggleInput(sectionKey, dataArray) {
+            let score = 0;
+            dataArray.forEach((item, index) => {
+                const userAnswer = userAnswers[sectionKey][index];
+                const row = document.getElementById(`${sectionKey}_row_${index}`);
+                row.classList.remove('correct-answer', 'wrong-answer');
+
+                if (!userAnswer) {
+                    row.classList.add('wrong-answer');
+                    setTimeout(() => row.classList.remove('wrong-answer'), 400);
+                    setTimeout(() => { row.style.borderColor = "#ef4444"; }, 410);
+                } else if (userAnswer === item.answer) {
+                    row.classList.add('correct-answer');
+                    row.style.borderColor = "";
+                    score++;
+                } else {
+                    row.classList.add('wrong-answer');
+                    setTimeout(() => row.classList.remove('wrong-answer'), 400);
+                    setTimeout(() => { row.style.borderColor = "#ef4444"; row.style.backgroundColor = "#fef2f2"; }, 410);
+                }
+            });
+            return score;
+        }
+
+        function gradeAll() {
+            let totalScore = 0;
+            const totalQuestions = 20; // S1(5) + S2(5) + S3(3) + S4(3) + S5(4)
+
+            // 초기화 (기존 인라인 스타일 제거)
+            document.querySelectorAll('select').forEach(el => {
+                el.style.borderColor = "";
+                el.classList.remove('bg-red-50', 'text-red-700');
+            });
+            document.querySelectorAll('div[id*="_row_"]').forEach(el => {
+                el.style.borderColor = "";
+                el.style.backgroundColor = "";
+            });
+
+            // 섹션 1 체크
+            for (let i = 0; i < 5; i++) {
+                totalScore += checkSelectInput(document.getElementById(`s1_q${i}`));
+            }
+
+            // 섹션 2 체크
+            for (let i = 1; i <= 5; i++) {
+                totalScore += checkSelectInput(document.getElementById(`s2_q${i}`));
+            }
+
+            // 섹션 3 체크
+            for (let i = 1; i <= 3; i++) {
+                totalScore += checkSelectInput(document.getElementById(`s3_q${i}`));
+            }
+
+            // 섹션 4, 5 체크
+            totalScore += checkToggleInput('s4', s4Data);
+            totalScore += checkToggleInput('s5', s5Data);
+
+            // 결과 모달 표시
+            showModal(totalScore, totalQuestions);
+        }
+
+        function showModal(score, total) {
+            const modal = document.getElementById('result-modal');
+            const modalContent = document.getElementById('modal-content');
+            const scoreEl = document.getElementById('modal-score');
+            const barEl = document.getElementById('modal-bar');
+            const iconEl = document.getElementById('modal-icon');
+            const titleEl = document.getElementById('modal-title');
+
+            scoreEl.textContent = score;
+            const percent = (score / total) * 100;
+            
+            if (percent === 100) {
+                iconEl.textContent = "🏆";
+                titleEl.textContent = "완벽합니다!";
+                titleEl.className = "text-2xl font-black text-green-600 mb-2";
+                barEl.className = "bg-green-500 h-3 rounded-full transition-all duration-1000";
+            } else if (percent >= 80) {
+                iconEl.textContent = "👍";
+                titleEl.textContent = "참 잘했어요!";
+                titleEl.className = "text-2xl font-black text-blue-600 mb-2";
+                barEl.className = "bg-blue-500 h-3 rounded-full transition-all duration-1000";
+            } else {
+                iconEl.textContent = "💪";
+                titleEl.textContent = "조금 더 복습해볼까요?";
+                titleEl.className = "text-2xl font-black text-orange-600 mb-2";
+                barEl.className = "bg-orange-500 h-3 rounded-full transition-all duration-1000";
+            }
+
+            modal.classList.remove('hidden');
+            // 애니메이션을 위해 약간의 딜레이
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+                barEl.style.width = `${percent}%`;
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('result-modal');
+            const modalContent = document.getElementById('modal-content');
+            
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // 초기화
+        window.onload = () => {
+            renderSection1();
+            renderSections4and5();
+        };
+
+    </script>
+</body>
+</html>
