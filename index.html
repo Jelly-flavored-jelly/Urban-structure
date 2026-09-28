@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>도시 단원 스마트 학습 앱</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f0fdf4; /* 부드러운 배경색 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 드래그 앤 드롭 대체 (클릭 선택 방식) 스타일 */
+        .selectable-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .selectable-item.selected {
+            ring: 4px;
+            ring-color: #3b82f6;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+        .drop-zone {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .drop-zone.highlight {
+            background-color: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        /* 정답/오답 애니메이션 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .wrong-shake {
+            animation: shake 0.4s ease-in-out;
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+        }
+        .correct-pulse {
+            border-color: #22c55e !important;
+            background-color: #f0fdf4 !important;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+        }
+
+        /* 도시 구조도 CSS */
+        .city-map-container {
+            position: relative;
+            width: 100%;
+            max-width: 320px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-green-600">🏙️ 도시 마스터하기</h1>
+            <div class="text-sm font-semibold bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                Step <span id="current-step-display">1</span> / 5
+            </div>
+        </div>
+        <div class="w-full bg-gray-200 h-2">
+            <div id="progress-bar" class="bg-green-500 h-2 transition-all duration-500" style="width: 20%;"></div>
+        </div>
+    </header>
+
+    <!-- 커스텀 알림창 (Toast) -->
+    <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none z-50 text-center font-medium whitespace-nowrap">
+        메시지
+    </div>
+
+    <main class="max-w-3xl mx-auto px-4 py-6 min-h-[70vh]">
+        
+        <section id="step-1" class="step-section fade-in block">
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border-t-4 border-blue-400">
+                <h2 class="text-2xl font-bold mb-2 flex items-center"><span class="text-3xl mr-2">1️⃣</span> 도시 내부 구조의 특징</h2>
+                <p class="text-gray-600 mb-6">다음 설명에 알맞은 도시 내부 구역을 선택해보세요.</p>
+                
+                <div id="quiz-container-1" class="space-y-6">
+                    <!-- 문제들이 JS로 삽입됨 -->
+                </div>
+
+                <button onclick="checkStep1()" class="mt-8 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-lg">
+                    정답 확인하기
+                </button>
+            </div>
+        </section>
+
+        <section id="step-2" class="step-section hidden fade-in block">
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border-t-4 border-indigo-400">
+                <h2 class="text-2xl font-bold mb-2 flex items-center"><span class="text-3xl mr-2">2️⃣</span> 도시 내부 구조 모식도</h2>
+                <p class="text-gray-600 mb-4">아래 단어를 <strong>클릭</strong>한 후, 모식도의 알맞은 빈칸을 <strong>클릭</strong>하여 채워보세요.</p>
+                
+                <!-- 단어 목록 (선택용) -->
+                <div class="flex flex-wrap justify-center gap-2 mb-8 p-4 bg-indigo-50 rounded-xl" id="word-bank-2">
+                    <div class="selectable-item bg-white border-2 border-indigo-200 px-4 py-2 rounded-lg font-bold text-indigo-700 shadow-sm" data-word="도심">도심</div>
+                    <div class="selectable-item bg-white border-2 border-indigo-200 px-4 py-2 rounded-lg font-bold text-indigo-700 shadow-sm" data-word="부도심">부도심</div>
+                    <div class="selectable-item bg-white border-2 border-indigo-200 px-4 py-2 rounded-lg font-bold text-indigo-700 shadow-sm" data-word="중간 지대">중간 지대</div>
+                    <div class="selectable-item bg-white border-2 border-indigo-200 px-4 py-2 rounded-lg font-bold text-indigo-700 shadow-sm" data-word="주변 지대">주변 지대</div>
+                    <div class="selectable-item bg-white border-2 border-indigo-200 px-4 py-2 rounded-lg font-bold text-indigo-700 shadow-sm" data-word="개발 제한 구역">개발 제한 구역</div>
+                </div>
+
+                <!-- CSS 모식도 -->
+                <div class="city-map-container bg-green-50 rounded-full border-4 border-green-500 relative flex items-center justify-center">
+                    <!-- 개발 제한 구역 라벨 자리 (최외곽) -->
+                    <div class="absolute top-2 drop-zone w-24 h-8 bg-white border-2 border-dashed border-gray-400 rounded flex items-center justify-center text-sm font-bold text-gray-500 z-10 bg-opacity-80" data-answer="개발 제한 구역">빈칸</div>
+                    
+                    <!-- 주변 지대 -->
+                    <div class="absolute w-[80%] h-[80%] bg-blue-100 rounded-full border border-blue-200 flex items-center justify-center">
+                        <div class="absolute bottom-4 drop-zone w-20 h-8 bg-white border-2 border-dashed border-gray-400 rounded flex items-center justify-center text-sm font-bold text-gray-500 z-10" data-answer="주변 지대">빈칸</div>
+                        
+                        <!-- 중간 지대 -->
+                        <div class="absolute w-[60%] h-[60%] bg-blue-200 rounded-full border border-blue-300 flex items-center justify-center">
+                            <div class="absolute top-4 drop-zone w-20 h-8 bg-white border-2 border-dashed border-gray-400 rounded flex items-center justify-center text-sm font-bold text-gray-500 z-10" data-answer="중간 지대">빈칸</div>
+                            
+                            <!-- 도심 -->
+                            <div class="absolute w-[40%] h-[40%] bg-red-300 rounded-full shadow-lg flex items-center justify-center">
+                                <div class="drop-zone w-16 h-8 bg-white border-2 border-dashed border-gray-400 rounded flex items-center justify-center text-sm font-bold text-gray-500 z-10" data-answer="도심">빈칸</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 부도심 (교통 결절지, 중간과 주변 사이) -->
+                        <div class="absolute w-[25%] h-[25%] bg-yellow-300 rounded-full right-[5%] top-[50%] -translate-y-1/2 shadow-md flex items-center justify-center">
+                            <div class="drop-zone w-16 h-8 bg-white border-2 border-dashed border-gray-400 rounded flex items-center justify-center text-xs font-bold text-gray-500 z-10" data-answer="부도심">빈칸</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="checkStep2()" class="mt-8 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-lg">
+                    정답 확인하기
+                </button>
+            </div>
+        </section>
+
+        <section id="step-3" class="step-section hidden fade-in block">
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border-t-4 border-yellow-400">
+                <h2 class="text-2xl font-bold mb-2 flex items-center"><span class="text-3xl mr-2">3️⃣</span> 도시화의 의미</h2>
+                <p class="text-gray-600 mb-8">문장을 읽고 빈칸에 알맞은 말을 선택해 문장을 완성하세요.</p>
+                
+                <div class="text-lg leading-loose bg-yellow-50 p-6 rounded-xl border border-yellow-100 shadow-inner">
+                    도시화란 전체 인구 중 
+                    <select id="blank-1" class="mx-2 px-3 py-1 bg-white border-2 border-yellow-300 rounded-lg font-bold text-yellow-700 outline-none focus:border-yellow-500 shadow-sm appearance-none cursor-pointer">
+                        <option value="">선택</option>
+                        <option value="농촌">농촌</option>
+                        <option value="도시">도시</option>
+                    </select>
+                    (에) 거주하는 인구 비율이 높아지고, 
+                    <select id="blank-2" class="mx-2 px-3 py-1 bg-white border-2 border-yellow-300 rounded-lg font-bold text-yellow-700 outline-none focus:border-yellow-500 shadow-sm appearance-none cursor-pointer">
+                        <option value="">선택</option>
+                        <option value="1차">1차</option>
+                        <option value="2·3차">2·3차</option>
+                    </select>
+                    산업의 비중이 증가하며, 도시적 
+                    <select id="blank-3" class="mx-2 px-3 py-1 bg-white border-2 border-yellow-300 rounded-lg font-bold text-yellow-700 outline-none focus:border-yellow-500 shadow-sm appearance-none cursor-pointer">
+                        <option value="">선택</option>
+                        <option value="생활 양식">생활 양식</option>
+                        <option value="전통 문화">전통 문화</option>
+                    </select>
+                    (이)가 확대되는 과정이다.
+                </div>
+
+                <button onclick="checkStep3()" class="mt-8 w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-lg">
+                    정답 확인하기
+                </button>
+            </div>
+        </section>
+
+        <section id="step-4" class="step-section hidden fade-in block">
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border-t-4 border-green-400">
+                <h2 class="text-2xl font-bold mb-2 flex items-center"><span class="text-3xl mr-2">4️⃣</span> 도시화 과정 비교</h2>
+                <p class="text-gray-600 mb-6">다음 특징이 선진국의 도시화인지, 개발도상국의 도시화인지 선택하세요.</p>
+                
+                <div id="quiz-container-4" class="space-y-4">
+                    <!-- JS로 렌더링 -->
+                </div>
+
+                <button onclick="checkStep4()" class="mt-8 w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-lg">
+                    정답 확인하기
+                </button>
+            </div>
+        </section>
+
+        <section id="step-5" class="step-section hidden fade-in block">
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border-t-4 border-purple-400">
+                <h2 class="text-2xl font-bold mb-2 flex items-center"><span class="text-3xl mr-2">5️⃣</span> 주요 도시 문제</h2>
+                <p class="text-gray-600 mb-4">아래 문제 카드를 <strong>클릭</strong>하여 선택한 후, 알맞은 국가군을 <strong>클릭</strong>하여 분류해주세요.</p>
+                
+                <!-- 문제 카드 목록 -->
+                <div class="flex flex-wrap justify-center gap-3 mb-8 p-4 bg-purple-50 rounded-xl min-h-[100px]" id="word-bank-5">
+                    <div class="selectable-item-5 bg-white border-2 border-purple-200 px-3 py-2 rounded-lg font-bold text-purple-700 shadow-sm text-sm" data-word="도심 쇠퇴(슬럼화)">도심 쇠퇴(슬럼화)</div>
+                    <div class="selectable-item-5 bg-white border-2 border-purple-200 px-3 py-2 rounded-lg font-bold text-purple-700 shadow-sm text-sm" data-word="역도시화">역도시화</div>
+                    <div class="selectable-item-5 bg-white border-2 border-purple-200 px-3 py-2 rounded-lg font-bold text-purple-700 shadow-sm text-sm" data-word="주택 및 기반 시설 부족">주택 및 기반 시설 부족</div>
+                    <div class="selectable-item-5 bg-white border-2 border-purple-200 px-3 py-2 rounded-lg font-bold text-purple-700 shadow-sm text-sm" data-word="무허가 불량 주택 형성(판자촌)">무허가 불량 주택 형성(판자촌)</div>
+                </div>
+
+                <!-- 분류 바구니 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bucket bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col" data-category="선진국">
+                        <h3 class="text-center font-bold text-lg mb-3 text-gray-700">🏢 선진국의 도시 문제</h3>
+                        <div class="bucket-content flex-grow flex flex-col gap-2 min-h-[120px]">
+                            <!-- 아이템이 여기로 이동 -->
+                        </div>
+                    </div>
+                    
+                    <div class="bucket bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col" data-category="개발도상국">
+                        <h3 class="text-center font-bold text-lg mb-3 text-gray-700">🏗️ 개발도상국의 도시 문제</h3>
+                        <div class="bucket-content flex-grow flex flex-col gap-2 min-h-[120px]">
+                            <!-- 아이템이 여기로 이동 -->
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="checkStep5()" class="mt-8 w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-lg">
+                    정답 확인하기
+                </button>
+            </div>
+        </section>
+
+        <div class="flex justify-between items-center mt-6">
+            <button id="prev-btn" onclick="prevStep()" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-6 rounded-lg transition-colors">
+                이전
+            </button>
+            <div class="flex-grow"></div>
+            <button id="next-btn" onclick="nextStep()" class="hidden bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-lg">
+                다음 활동으로 <span class="ml-2">→</span>
+            </button>
+        </div>
+
+    </main>
+
+    <script>
+        // 전역 상태
+        let currentStep = 1;
+        const totalSteps = 5;
+
+        // 알림 메시지 (Toast)
+        function showToast(message, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            if (isSuccess) {
+                toast.classList.remove('bg-red-500');
+                toast.classList.add('bg-green-600');
+            } else {
+                toast.classList.remove('bg-green-600');
+                toast.classList.add('bg-red-500');
+            }
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 2500);
+        }
+
+        // 공통 네비게이션 함수
+        function updateNavigation() {
+            document.querySelectorAll('.step-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`step-${currentStep}`).classList.remove('hidden');
+            
+            document.getElementById('current-step-display').textContent = currentStep;
+            document.getElementById('progress-bar').style.width = `${(currentStep / totalSteps) * 100}%`;
+            
+            document.getElementById('prev-btn').classList.toggle('hidden', currentStep === 1);
+            // 다음 버튼은 각 활동을 '정답 확인'한 후에 보이도록 함 (초기화)
+            document.getElementById('next-btn').classList.add('hidden');
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateNavigation();
+                window.scrollTo(0, 0);
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateNavigation();
+                window.scrollTo(0, 0);
+            }
+        }
+
+        // ==========================================
+        // 활동 1: 객관식 퀴즈 로직
+        // ==========================================
+        const quiz1Data = [
+            {
+                q: "중추 관리 기능이 밀집하며, 지대와 접근성이 가장 높은 곳은 어디인가요?",
+                options: ["도심(CBD)", "부도심", "중간 지대", "주변 지대"],
+                answer: 0
+            },
+            {
+                q: "도심의 기능을 분담하며, 주로 교통이 편리한 결절지에 형성되는 곳은?",
+                options: ["도심(CBD)", "부도심", "중간 지대", "주변 지대"],
+                answer: 1
+            },
+            {
+                q: "주거 기능과 공업 기능이 주로 나타나며, 지대가 비교적 낮은 외곽 지역은?",
+                options: ["도심(CBD)", "부도심", "중간 지대", "주변 지대"],
+                answer: 3
+            }
+        ];
+
+        function renderStep1() {
+            const container = document.getElementById('quiz-container-1');
+            container.innerHTML = '';
+            quiz1Data.forEach((quiz, index) => {
+                let optionsHtml = quiz.options.map((opt, i) => `
+                    <label class="flex items-center p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-blue-50 transition-colors">
+                        <input type="radio" name="quiz1-${index}" value="${i}" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <span class="ml-3 text-gray-700 font-medium">${opt}</span>
+                    </label>
+                `).join('');
+
+                container.innerHTML += `
+                    <div class="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100" id="q1-box-${index}">
+                        <p class="font-bold text-gray-800 mb-3"><span class="text-blue-500 mr-1">Q${index + 1}.</span> ${quiz.q}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            ${optionsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function checkStep1() {
+            let allCorrect = true;
+            let answeredAll = true;
+
+            quiz1Data.forEach((quiz, index) => {
+                const selected = document.querySelector(`input[name="quiz1-${index}"]:checked`);
+                const box = document.getElementById(`q1-box-${index}`);
+                
+                // 초기화
+                box.classList.remove('correct-pulse', 'wrong-shake');
+
+                if (!selected) {
+                    answeredAll = false;
+                    return;
+                }
+
+                if (parseInt(selected.value) === quiz.answer) {
+                    box.classList.add('correct-pulse');
+                } else {
+                    allCorrect = false;
+                    box.classList.add('wrong-shake');
+                    // 애니메이션 재설정을 위한 트릭
+                    setTimeout(() => box.classList.remove('wrong-shake'), 400);
+                }
+            });
+
+            if (!answeredAll) {
+                showToast('모든 문제를 풀어주세요!', false);
+                return;
+            }
+
+            if (allCorrect) {
+                showToast('정답입니다! 완벽해요 🎉');
+                document.getElementById('next-btn').classList.remove('hidden');
+            } else {
+                showToast('틀린 문제가 있어요. 다시 확인해보세요.', false);
+            }
+        }
+
+        // ==========================================
+        // 활동 2: 모식도 클릭 매칭 로직
+        // ==========================================
+        let selectedWord2 = null;
+        let selectedElement2 = null;
+
+        function initStep2() {
+            const items = document.querySelectorAll('.selectable-item');
+            const zones = document.querySelectorAll('.drop-zone');
+
+            // 단어 클릭
+            items.forEach(item => {
+                item.addEventListener('click', () => {
+                    // 기선택 해제
+                    items.forEach(i => i.classList.remove('selected'));
+                    
+                    item.classList.add('selected');
+                    selectedWord2 = item.dataset.word;
+                    selectedElement2 = item;
+                });
+            });
+
+            // 빈칸(zone) 클릭
+            zones.forEach(zone => {
+                zone.addEventListener('click', () => {
+                    if (selectedWord2) {
+                        // 기존 내용이 있으면 원래 위치로 돌려보내기 (선택적 구현이나 여기선 덮어쓰기로 심플하게)
+                        // 빈칸에 텍스트 채우기
+                        zone.textContent = selectedWord2;
+                        zone.classList.add('text-indigo-700', 'bg-indigo-50');
+                        zone.classList.remove('text-gray-500', 'border-dashed');
+                        zone.dataset.current = selectedWord2;
+                        
+                        // 사용된 단어 숨기기
+                        selectedElement2.style.display = 'none';
+                        
+                        // 선택 초기화
+                        items.forEach(i => i.classList.remove('selected'));
+                        selectedWord2 = null;
+                        selectedElement2 = null;
+                    } else if (zone.dataset.current) {
+                        // 이미 채워진 칸을 누르면 취소(단어 목록으로 복귀)
+                        const wordToReturn = zone.dataset.current;
+                        const originalItem = document.querySelector(`.selectable-item[data-word="${wordToReturn}"]`);
+                        if(originalItem) originalItem.style.display = 'block';
+                        
+                        zone.textContent = '빈칸';
+                        zone.classList.remove('text-indigo-700', 'bg-indigo-50');
+                        zone.classList.add('text-gray-500', 'border-dashed');
+                        delete zone.dataset.current;
+                    }
+                });
+            });
+        }
+
+        function checkStep2() {
+            const zones = document.querySelectorAll('.drop-zone');
+            let allCorrect = true;
+            let answeredAll = true;
+
+            zones.forEach(zone => {
+                const correctAnswer = zone.dataset.answer;
+                const currentAnswer = zone.dataset.current;
+
+                zone.classList.remove('wrong-shake', 'correct-pulse');
+
+                if (!currentAnswer) {
+                    answeredAll = false;
+                    return;
+                }
+
+                if (currentAnswer === correctAnswer) {
+                    zone.classList.add('correct-pulse');
+                } else {
+                    allCorrect = false;
+                    zone.classList.add('wrong-shake');
+                    setTimeout(() => zone.classList.remove('wrong-shake'), 400);
+                }
+            });
+
+            if (!answeredAll) {
+                showToast('모든 빈칸을 채워주세요!', false);
+                return;
+            }
+
+            if (allCorrect) {
+                showToast('훌륭합니다! 구조를 잘 파악했네요 🎉');
+                document.getElementById('next-btn').classList.remove('hidden');
+                document.getElementById('next-btn').textContent = "다음 활동으로 →";
+            } else {
+                showToast('위치가 틀린 곳이 있습니다. 다시 배치해보세요.', false);
+            }
+        }
+
+        // ==========================================
+        // 활동 3: 빈칸 채우기 로직
+        // ==========================================
+        function checkStep3() {
+            const b1 = document.getElementById('blank-1').value;
+            const b2 = document.getElementById('blank-2').value;
+            const b3 = document.getElementById('blank-3').value;
+
+            document.getElementById('blank-1').classList.remove('wrong-shake', 'correct-pulse');
+            document.getElementById('blank-2').classList.remove('wrong-shake', 'correct-pulse');
+            document.getElementById('blank-3').classList.remove('wrong-shake', 'correct-pulse');
+
+            if (!b1 || !b2 || !b3) {
+                showToast('모든 빈칸을 선택해주세요.', false);
+                return;
+            }
+
+            let correct = true;
+            if (b1 === "도시") { document.getElementById('blank-1').classList.add('correct-pulse'); } 
+            else { correct = false; document.getElementById('blank-1').classList.add('wrong-shake'); }
+
+            if (b2 === "2·3차") { document.getElementById('blank-2').classList.add('correct-pulse'); } 
+            else { correct = false; document.getElementById('blank-2').classList.add('wrong-shake'); }
+
+            if (b3 === "생활 양식") { document.getElementById('blank-3').classList.add('correct-pulse'); } 
+            else { correct = false; document.getElementById('blank-3').classList.add('wrong-shake'); }
+
+            setTimeout(() => {
+                document.querySelectorAll('select').forEach(el => el.classList.remove('wrong-shake'));
+            }, 400);
+
+            if (correct) {
+                showToast('정답입니다! 도시화의 의미를 완벽히 이해했네요 🎉');
+                document.getElementById('next-btn').classList.remove('hidden');
+            } else {
+                showToast('틀린 부분이 있습니다. 다시 확인해보세요.', false);
+            }
+        }
+
+        // ==========================================
+        // 활동 4: 비교 퀴즈 로직
+        // ==========================================
+        const quiz4Data = [
+            { text: "산업 혁명 이후 점진적으로 도시화가 진행됨", type: "선진국" },
+            { text: "20세기 중반 이후 이촌향도 현상으로 급속하게 진행됨", type: "개발도상국" },
+            { text: "대부분 도시화의 종착 단계에 도달하여 인구가 정체됨", type: "선진국" },
+            { text: "현재 도시화가 급속하게 진행되는 가속화 단계임", type: "개발도상국" }
+        ];
+
+        function renderStep4() {
+            const container = document.getElementById('quiz-container-4');
+            container.innerHTML = '';
+            quiz4Data.forEach((q, index) => {
+                container.innerHTML += `
+                    <div class="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4" id="q4-box-${index}">
+                        <p class="font-medium text-gray-800 flex-1">${q.text}</p>
+                        <div class="flex gap-2">
+                            <button onclick="selectStep4(${index}, '선진국')" id="btn-4-${index}-선진국" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-green-50 focus:outline-none transition-colors">선진국</button>
+                            <button onclick="selectStep4(${index}, '개발도상국')" id="btn-4-${index}-개발도상국" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-green-50 focus:outline-none transition-colors">개발도상국</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        const answers4 = {};
+        function selectStep4(index, choice) {
+            answers4[index] = choice;
+            // UI 업데이트
+            document.getElementById(`btn-4-${index}-선진국`).classList.remove('bg-green-500', 'text-white', 'border-green-500');
+            document.getElementById(`btn-4-${index}-개발도상국`).classList.remove('bg-green-500', 'text-white', 'border-green-500');
+            
+            const selectedBtn = document.getElementById(`btn-4-${index}-${choice}`);
+            selectedBtn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+            selectedBtn.classList.remove('bg-white', 'text-gray-600');
+        }
+
+        function checkStep4() {
+            let allCorrect = true;
+            let answeredAll = true;
+
+            quiz4Data.forEach((q, index) => {
+                const box = document.getElementById(`q4-box-${index}`);
+                box.classList.remove('wrong-shake', 'correct-pulse');
+
+                if (!answers4[index]) {
+                    answeredAll = false;
+                    return;
+                }
+
+                if (answers4[index] === q.type) {
+                    box.classList.add('correct-pulse');
+                } else {
+                    allCorrect = false;
+                    box.classList.add('wrong-shake');
+                    setTimeout(() => box.classList.remove('wrong-shake'), 400);
+                }
+            });
+
+            if (!answeredAll) {
+                showToast('모든 항목을 분류해주세요.', false);
+                return;
+            }
+
+            if (allCorrect) {
+                showToast('정답입니다! 두 국가군의 차이를 잘 아네요 🎉');
+                document.getElementById('next-btn').classList.remove('hidden');
+            } else {
+                showToast('분류가 잘못된 항목이 있습니다.', false);
+            }
+        }
+
+        // ==========================================
+        // 활동 5: 도시 문제 분류 로직 (클릭 매칭)
+        // ==========================================
+        let selectedWord5 = null;
+        let selectedElement5 = null;
+        
+        // 정답 데이터
+        const answers5Map = {
+            "도심 쇠퇴(슬럼화)": "선진국",
+            "역도시화": "선진국",
+            "주택 및 기반 시설 부족": "개발도상국",
+            "무허가 불량 주택 형성(판자촌)": "개발도상국"
+        };
+
+        function initStep5() {
+            const items = document.querySelectorAll('.selectable-item-5');
+            const buckets = document.querySelectorAll('.bucket');
+
+            // 카드 클릭
+            items.forEach(item => {
+                item.addEventListener('click', () => {
+                    items.forEach(i => i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    selectedWord5 = item.dataset.word;
+                    selectedElement5 = item;
+                });
+            });
+
+            // 바구니 클릭
+            buckets.forEach(bucket => {
+                bucket.addEventListener('click', () => {
+                    if (selectedWord5 && selectedElement5) {
+                        const contentArea = bucket.querySelector('.bucket-content');
+                        
+                        // 새 카드 요소 생성
+                        const newCard = document.createElement('div');
+                        newCard.className = "bg-white p-2 rounded border border-gray-200 text-sm font-bold text-center shadow-sm cursor-pointer hover:bg-red-50";
+                        newCard.textContent = selectedWord5;
+                        newCard.dataset.word = selectedWord5;
+                        newCard.title = "클릭하여 빼기";
+                        
+                        // 바구니 안의 카드를 다시 클릭하면 빼기
+                        newCard.addEventListener('click', (e) => {
+                            e.stopPropagation(); // 바구니 클릭 이벤트 전파 방지
+                            const originalItem = document.querySelector(`.selectable-item-5[data-word="${newCard.dataset.word}"]`);
+                            if(originalItem) originalItem.style.display = 'block';
+                            newCard.remove();
+                        });
+
+                        contentArea.appendChild(newCard);
+                        
+                        // 원본 숨기기 및 초기화
+                        selectedElement5.style.display = 'none';
+                        items.forEach(i => i.classList.remove('selected'));
+                        selectedWord5 = null;
+                        selectedElement5 = null;
+                    }
+                });
+            });
+        }
+
+        function checkStep5() {
+            const items = document.querySelectorAll('.selectable-item-5');
+            // 아직 배치 안 된 카드가 있는지 확인
+            let unplaced = Array.from(items).some(item => item.style.display !== 'none');
+            
+            if (unplaced) {
+                showToast('모든 카드를 알맞은 바구니에 분류해주세요.', false);
+                return;
+            }
+
+            const buckets = document.querySelectorAll('.bucket');
+            let allCorrect = true;
+
+            buckets.forEach(bucket => {
+                const category = bucket.dataset.category;
+                const cards = bucket.querySelectorAll('.bucket-content div');
+                bucket.classList.remove('wrong-shake', 'correct-pulse');
+                
+                let bucketWrong = false;
+                cards.forEach(card => {
+                    if (answers5Map[card.dataset.word] !== category) {
+                        bucketWrong = true;
+                        allCorrect = false;
+                        card.classList.add('text-red-600', 'bg-red-100'); // 틀린 항목 강조
+                    } else {
+                        card.classList.remove('text-red-600', 'bg-red-100');
+                        card.classList.add('text-green-700', 'bg-green-50');
+                    }
+                });
+
+                if (bucketWrong) {
+                    bucket.classList.add('wrong-shake');
+                    setTimeout(() => bucket.classList.remove('wrong-shake'), 400);
+                } else if (cards.length > 0) {
+                    bucket.classList.add('correct-pulse');
+                }
+            });
+
+            if (allCorrect) {
+                showToast('모든 도시 문제를 정확하게 분류했습니다! 학습 완료 🎉');
+                document.getElementById('next-btn').classList.remove('hidden');
+                document.getElementById('next-btn').textContent = "수고하셨습니다 👏";
+                document.getElementById('next-btn').onclick = () => alert("학습을 훌륭히 마쳤습니다. 처음부터 다시 하려면 새로고침 하세요.");
+            } else {
+                showToast('잘못 분류된 카드가 있습니다. 카드를 다시 클릭해서 빼보세요.', false);
+            }
+        }
+
+        // 초기화
+        window.onload = () => {
+            renderStep1();
+            initStep2();
+            renderStep4();
+            initStep5();
+            updateNavigation();
+        };
+
+    </script>
+</body>
+</html>
